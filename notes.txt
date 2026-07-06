@@ -1,0 +1,78 @@
+Project: Date-Night AI Agent
+=============================
+An AI-powered date night planner: describes a vibe → gets restaurant recommendations + backup plan + talking points.
+
+STRUCTURE
+─────────
+Date-Night/
+├── backend/          # Python AI agent
+│   ├── app.py               Flask server (entry point)
+│   ├── config.py            Env vars (Gemini API key, model)
+│   ├── requirements.txt     Python dependencies
+│   ├── agent/
+│   │   ├── orchestrator.py  Pipeline: search → rank → talking points → summary
+│   │   ├── prompt_builder.py  Gemini prompt templates
+│   │   └── parser.py        Extract JSON from Gemini responses
+│   ├── services/
+│   │   └── web_search.py    Gemini-based restaurant generator (replaces DuckDuckGo)
+│   ├── models/
+│   │   ├── request.py       DatePlanRequest dataclass (vibe, cuisine, budget, location)
+│   │   └── recommendation.py  DatePlanResponse, RestaurantPick dataclasses
+│   └── utils/
+│       └── helpers.py       Formatting utilities
+├── frontend/         # Flutter Android app
+│   └── date_night_app/
+│       ├── pubspec.yaml
+│       └── lib/
+│           ├── main.dart              App entry, warm theme (navy + coral red)
+│           ├── models/date_plan.dart   Dart models matching backend JSON
+│           ├── services/api_service.dart  HTTP client → Render backend
+│           ├── screens/home_screen.dart   Input form + glowing heart loading overlay
+│           ├── screens/results_screen.dart  Primary/backup/talking point display
+│           └── widgets/
+│               ├── glowing_heart.dart    Animated pulsing heart with glow rings
+│               ├── budget_selector.dart  $–$$$$ animated budget picker
+│               └── restaurant_card.dart  Styled restaurant result card
+├── render.yaml       # Render deployment config
+└── .gitignore
+
+BACKEND LIBRARIES
+─────────────────
+Flask            → Web server, receives POST requests from Flutter
+Flask-CORS       → Allows cross-origin requests (Flutter → Render)
+Gunicorn         → Production WSGI server (used on Render)
+google-genai     → Google Gemini API client (model: gemini-3.1-flash-lite)
+python-dotenv    → Loads .env file (API keys)
+requests         → HTTP client (reserved for future external API calls)
+
+HOW THE AI AGENT WORKS (Pipeline)
+─────────────────────────────────
+1. Flutter sends {vibe, cuisine, budget, location} to POST /api/plan-date
+2. app.py validates the request via DatePlanRequest dataclass
+3. orchestrator.py calls:
+   a) Gemini → generates 5-6 real restaurants matching the criteria
+   b) Gemini → analyzes each restaurant's vibe match, ranks them
+   c) Gemini → generates a talking point for the #1 pick
+   d) Gemini → writes a 1-2 sentence summary of the date plan
+4. parser.py extracts structured JSON from each Gemini response
+5. build_response() assembles {primary_pick, backup_pick, talking_point, summary}
+6. Flask returns JSON → Flutter displays styled result cards
+
+FRONTEND LIBRARIES
+──────────────────
+Flutter SDK      → Android app framework
+http             → API calls to backend
+
+DEPLOYMENT (Render)
+───────────────────
+- Build: pip install -r backend/requirements.txt
+- Start: gunicorn backend.app:app
+- Set env var: GEMINI_API_KEY in Render Dashboard
+- Flutter points to: https://date-night-ky1n.onrender.com/api
+
+KEY DESIGN DECISIONS
+────────────────────
+- No DuckDuckGo/Google Places API → Gemini generates everything from training data
+- No pydantic → stdlib dataclasses (avoids Rust compilation on Render)
+- Fallback: if Gemini API key has no quota → returns 6 curated Indian restaurants
+- Glowing heart animation during loading (pure Flutter, no extra packages)
