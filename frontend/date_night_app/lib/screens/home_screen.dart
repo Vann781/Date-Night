@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../widgets/budget_selector.dart';
+import '../widgets/glowing_heart.dart';
 import 'results_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -16,13 +18,36 @@ class _HomeScreenState extends State<HomeScreen> {
   final _locationController = TextEditingController();
   String _selectedBudget = '\$\$';
   bool _isLoading = false;
+  int _loadingMessageIndex = 0;
+  Timer? _messageTimer;
+
+  static const _loadingMessages = [
+    "Finding romantic spots...",
+    "Checking the vibe...",
+    "Reading reviews...",
+    "Planning your perfect evening...",
+    "Almost there...",
+  ];
 
   @override
   void dispose() {
     _vibeController.dispose();
     _cuisineController.dispose();
     _locationController.dispose();
+    _messageTimer?.cancel();
     super.dispose();
+  }
+
+  void _startMessageCycling() {
+    _loadingMessageIndex = 0;
+    _messageTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      if (mounted) {
+        setState(() {
+          _loadingMessageIndex =
+              (_loadingMessageIndex + 1) % _loadingMessages.length;
+        });
+      }
+    });
   }
 
   Future<void> _planDate() async {
@@ -32,6 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     setState(() => _isLoading = true);
+    _startMessageCycling();
 
     try {
       final result = await ApiService.planDate(
@@ -62,6 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       _showError(e.toString().replaceFirst('Exception: ', ''));
     } finally {
+      _messageTimer?.cancel();
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -84,100 +111,114 @@ class _HomeScreenState extends State<HomeScreen> {
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(24, size.height * 0.06, 24, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _Header(),
-              SizedBox(height: size.height * 0.04),
-              _InputSection(
-                icon: Icons.auto_awesome,
-                title: 'Vibe',
-                subtitle: 'Describe the mood you want',
-                child: TextField(
-                  controller: _vibeController,
-                  maxLines: 3,
-                  decoration: _inputDecoration(
-                    hint: 'e.g. romantic but not stuffy...',
-                  ),
-                  textCapitalization: TextCapitalization.sentences,
-                ),
-              ),
-              const SizedBox(height: 20),
-              _InputSection(
-                icon: Icons.restaurant,
-                title: 'Cuisine',
-                subtitle: 'Any preference? (optional)',
-                child: TextField(
-                  controller: _cuisineController,
-                  decoration: _inputDecoration(hint: 'e.g. Italian, Japanese'),
-                  textCapitalization: TextCapitalization.sentences,
-                ),
-              ),
-              const SizedBox(height: 20),
-              _InputSection(
-                icon: Icons.attach_money,
-                title: 'Budget',
-                subtitle: 'Pick your price range',
-                child: BudgetSelector(
-                  selected: _selectedBudget,
-                  onChanged: (v) => setState(() => _selectedBudget = v),
-                ),
-              ),
-              const SizedBox(height: 20),
-              _InputSection(
-                icon: Icons.location_on,
-                title: 'Location',
-                subtitle: 'Area or distance preference (optional)',
-                child: TextField(
-                  controller: _locationController,
-                  decoration: _inputDecoration(
-                    hint: 'e.g. downtown, within 15 mins',
-                  ),
-                  textCapitalization: TextCapitalization.sentences,
-                ),
-              ),
-              const SizedBox(height: 36),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: FilledButton(
-                  onPressed: _isLoading ? null : _planDate,
-                  style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(24, size.height * 0.06, 24, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _Header(),
+                  SizedBox(height: size.height * 0.04),
+                  _InputSection(
+                    icon: Icons.auto_awesome,
+                    title: 'Vibe',
+                    subtitle: 'Describe the mood you want',
+                    child: TextField(
+                      controller: _vibeController,
+                      maxLines: 3,
+                      decoration: _inputDecoration(
+                        hint: 'e.g. romantic but not stuffy...',
+                      ),
+                      textCapitalization: TextCapitalization.sentences,
+                      enabled: !_isLoading,
                     ),
-                    elevation: 0,
                   ),
-                  child: _isLoading
-                      ? SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: theme.colorScheme.onPrimary,
-                          ),
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.auto_awesome, size: 20),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Plan My Date',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+                  const SizedBox(height: 20),
+                  _InputSection(
+                    icon: Icons.restaurant,
+                    title: 'Cuisine',
+                    subtitle: 'Any preference? (optional)',
+                    child: TextField(
+                      controller: _cuisineController,
+                      decoration: _inputDecoration(
+                        hint: 'e.g. Italian, Japanese',
+                      ),
+                      textCapitalization: TextCapitalization.sentences,
+                      enabled: !_isLoading,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _InputSection(
+                    icon: Icons.attach_money,
+                    title: 'Budget',
+                    subtitle: 'Pick your price range',
+                    child: IgnorePointer(
+                      ignoring: _isLoading,
+                      child: BudgetSelector(
+                        selected: _selectedBudget,
+                        onChanged: (v) => setState(() => _selectedBudget = v),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _InputSection(
+                    icon: Icons.location_on,
+                    title: 'Location',
+                    subtitle: 'Area or distance preference (optional)',
+                    child: TextField(
+                      controller: _locationController,
+                      decoration: _inputDecoration(
+                        hint: 'e.g. downtown, within 15 mins',
+                      ),
+                      textCapitalization: TextCapitalization.sentences,
+                      enabled: !_isLoading,
+                    ),
+                  ),
+                  const SizedBox(height: 36),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: FilledButton(
+                      onPressed: _isLoading ? null : _planDate,
+                      style: FilledButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                ),
+                        elevation: 0,
+                      ),
+                      child: _isLoading
+                          ? SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: theme.colorScheme.onPrimary,
+                              ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.auto_awesome, size: 20),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'Plan My Date',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+          if (_isLoading)
+            _LoadingOverlay(message: _loadingMessages[_loadingMessageIndex]),
+        ],
       ),
     );
   }
@@ -191,6 +232,51 @@ class _HomeScreenState extends State<HomeScreen> {
         borderSide: BorderSide.none,
       ),
       contentPadding: const EdgeInsets.all(16),
+    );
+  }
+}
+
+class _LoadingOverlay extends StatelessWidget {
+  final String message;
+
+  const _LoadingOverlay({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      color: Colors.black38,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const GlowingHeart(),
+            const SizedBox(height: 32),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 400),
+              transitionBuilder: (child, animation) =>
+                  FadeTransition(opacity: animation, child: child),
+              child: Text(
+                message,
+                key: ValueKey(message),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: 160,
+              child: LinearProgressIndicator(
+                backgroundColor: Colors.white24,
+                color: theme.colorScheme.primary,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
