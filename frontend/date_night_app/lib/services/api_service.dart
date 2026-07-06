@@ -3,9 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/date_plan.dart';
 
 class ApiService {
-  // 10.0.2.2 = Android emulator → host machine
-  // Change to your machine's IP if testing on a physical device
-  static const String _baseUrl = 'http://10.0.2.2:5000/api';
+  static const String _baseUrl = 'https://date-night-ky1n.onrender.com/api';
 
   static Future<DatePlanResponse> planDate({
     required String vibe,
