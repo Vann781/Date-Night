@@ -28,4 +28,5 @@ frontend/date_night_app/pubspec.lock
 # OS
 .DS_Store
 Thumbs.db
+*.zip
 
