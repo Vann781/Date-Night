@@ -1,6 +1,5 @@
 from backend.config import GEMINI_API_KEY, GEMINI_MODEL
 from backend.models.request import DatePlanRequest
-from backend.models.recommendation import DatePlanResponse
 from backend.services.web_search import search_restaurants
 from backend.agent.prompt_builder import (
     refine_search_query,
@@ -47,7 +46,7 @@ def _fallback_response(prompt: str) -> str:
     return '{"summary": "A perfect date night awaits!"}'
 
 
-def plan_date(request: DatePlanRequest) -> DatePlanResponse:
+def plan_date(request: DatePlanRequest) -> dict:
     search_query = refine_search_query(request)
     restaurants = search_restaurants(search_query)
 

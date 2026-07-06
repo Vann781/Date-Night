@@ -1,8 +1,21 @@
-from pydantic import BaseModel, Field
+from dataclasses import dataclass
 
 
-class DatePlanRequest(BaseModel):
-    vibe: str = Field(..., description="Description of the desired vibe, e.g. 'romantic but not stuffy'")
-    cuisine: str = Field("", description="Cuisine preference, e.g. 'Italian', 'Japanese'")
-    budget: str = Field("$$", description="Budget level: $, $$, $$$, $$$$")
-    location: str = Field("", description="Location or area, e.g. 'downtown, within 15 minutes'")
+@dataclass
+class DatePlanRequest:
+    vibe: str
+    cuisine: str = ""
+    budget: str = "$$"
+    location: str = ""
+
+    @staticmethod
+    def from_dict(data: dict) -> "DatePlanRequest":
+        vibe = data.get("vibe", "").strip()
+        if not vibe:
+            raise ValueError("vibe is required")
+        return DatePlanRequest(
+            vibe=vibe,
+            cuisine=data.get("cuisine", "").strip(),
+            budget=data.get("budget", "$$"),
+            location=data.get("location", "").strip(),
+        )

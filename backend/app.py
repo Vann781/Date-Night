@@ -12,13 +12,13 @@ CORS(app)
 def handle_plan_date():
     data = request.get_json(silent=True) or {}
     try:
-        req = DatePlanRequest(**data)
-    except Exception as e:
+        req = DatePlanRequest.from_dict(data)
+    except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
     try:
         result = plan_date(req)
-        return jsonify(result.model_dump()), 200
+        return jsonify(result), 200
     except Exception as e:
         return jsonify({"error": f"Agent error: {str(e)}"}), 500
 

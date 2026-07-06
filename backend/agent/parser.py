@@ -2,8 +2,6 @@ import json
 import re
 from typing import Optional
 
-from backend.models.recommendation import RestaurantPick, DatePlanResponse
-
 
 def _extract_json(text: str) -> Optional[dict]:
     text = text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
@@ -41,29 +39,28 @@ def parse_summary(llm_output: str) -> str:
     return ""
 
 
-def build_restaurant_pick(restaurant: dict) -> RestaurantPick:
-    return RestaurantPick(
-        name=restaurant.get("name", "Unknown"),
-        rating=restaurant.get("rating", 0.0),
-        price_level=restaurant.get("price_level", "$$"),
-        address=restaurant.get("address", ""),
-        description=restaurant.get("description", ""),
-        vibe_notes=restaurant.get("vibe_explanation", ""),
-        reservation_info=restaurant.get("reservation_platform", "Check website"),
-        reservation_url=restaurant.get("reservation_url"),
-        image_url=restaurant.get("image_url"),
-    )
-
-
 def build_response(
     primary: dict,
     backup: dict,
     talking_point: str,
     summary: str,
-) -> DatePlanResponse:
-    return DatePlanResponse(
-        primary_pick=build_restaurant_pick(primary),
-        backup_pick=build_restaurant_pick(backup),
-        talking_point=talking_point,
-        summary=summary,
-    )
+) -> dict:
+    def _pick(data: dict) -> dict:
+        return {
+            "name": data.get("name", "Unknown"),
+            "rating": data.get("rating", 0.0),
+            "price_level": data.get("price_level", "$$"),
+            "address": data.get("address", ""),
+            "description": data.get("description", ""),
+            "vibe_notes": data.get("vibe_explanation", ""),
+            "reservation_info": data.get("reservation_platform", "Check website"),
+            "reservation_url": data.get("reservation_url"),
+            "image_url": data.get("image_url"),
+        }
+
+    return {
+        "primary_pick": _pick(primary),
+        "backup_pick": _pick(backup),
+        "talking_point": talking_point,
+        "summary": summary,
+    }

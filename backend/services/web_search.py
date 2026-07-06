@@ -3,7 +3,7 @@ import os
 
 from duckduckgo_search import DDGS
 
-from backend.config import SERPAPI_API_KEY, USE_MOCK_SEARCH
+from backend.config import USE_MOCK_SEARCH
 
 MOCK_RESULTS_FILE = os.path.join(os.path.dirname(__file__), "..", "mock_data", "search_results.json")
 
