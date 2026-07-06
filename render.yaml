@@ -7,5 +7,3 @@ services:
     envVars:
       - key: GEMINI_API_KEY
         sync: false
-      - key: USE_MOCK_SEARCH
-        value: "true"

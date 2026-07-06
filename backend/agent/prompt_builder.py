@@ -6,15 +6,41 @@ SYSTEM_PROMPT = """You are a thoughtful date-night planning assistant. You help 
 Always respond in valid JSON format unless told otherwise. Be specific, warm, and helpful."""
 
 
-def refine_search_query(request: DatePlanRequest) -> str:
-    parts = ["best restaurants for a date"]
-    if request.cuisine:
-        parts.append(request.cuisine)
-    if request.location:
-        parts.append(request.location)
-    if request.budget:
-        parts.append(request.budget)
-    return " ".join(parts)
+def build_restaurant_search_prompt(request: DatePlanRequest | None) -> str:
+    if request is None:
+        vibe, cuisine, budget, location = "any", "any", "any", "any"
+    else:
+        vibe = request.vibe
+        cuisine = request.cuisine or "any"
+        budget = request.budget
+        location = request.location or "any"
+
+    return f"""You are a restaurant recommendation expert. Recommend 5-6 REAL restaurants that exist in the real world for a date night. The user wants:
+
+- Vibe: {vibe}
+- Cuisine preference: {cuisine}
+- Budget: {budget}
+- Location: {location}
+
+IMPORTANT RULES:
+- Only recommend restaurants that ACTUALLY EXIST — use real names, real locations, real ratings
+- If the user mentions a specific city or area (e.g. Mumbai, Delhi, Bangalore, Hyderabad), focus on restaurants there
+- Include a good mix of options across cuisines and vibes
+- For each restaurant include: name, rating (out of 5), price_level ($ to $$$$), address, a short description, 2-3 brief review snippets, reservation_platform (Zomato/Dineout/EazyDiner/Phone only/Walk-ins), and reservation_url if available
+
+Respond ONLY with a valid JSON array, no markdown, no extra text:
+[
+  {{
+    "name": "Restaurant Name",
+    "rating": 4.5,
+    "price_level": "$$",
+    "address": "Full address",
+    "description": "Short description of the place and atmosphere",
+    "reviews": ["Review snippet 1", "Review snippet 2", "Review snippet 3"],
+    "reservation_platform": "Zomato / Dineout / Phone only / Walk-ins",
+    "reservation_url": null
+  }}
+]"""
 
 
 def build_vibe_analysis_prompt(request: DatePlanRequest, restaurants: list[dict]) -> str:

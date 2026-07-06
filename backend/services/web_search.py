@@ -1,168 +1,132 @@
-import json
-import os
+"""
+Replaces web search with Gemini-generated restaurant recommendations.
+No external API dependency — Gemini uses its training knowledge of real restaurants.
+"""
 
-from duckduckgo_search import DDGS
-
-from backend.config import USE_MOCK_SEARCH
-
-MOCK_RESULTS_FILE = os.path.join(os.path.dirname(__file__), "..", "mock_data", "search_results.json")
-
-
-def _load_mock_results(query: str) -> list[dict]:
-    if not os.path.exists(MOCK_RESULTS_FILE):
-        return _generate_mock_results(query)
-    with open(MOCK_RESULTS_FILE, encoding="utf-8") as f:
-        data = json.load(f)
-    return data.get("results", [])[:10]
+from backend.models.request import DatePlanRequest
+from backend.agent.prompt_builder import build_restaurant_search_prompt
 
 
-def _generate_mock_results(query: str) -> list[dict]:
-    query_lower = query.lower()
-    results = []
+def _call_gemini_for_restaurants(prompt: str) -> str:
+    from backend.config import GEMINI_API_KEY, GEMINI_MODEL
 
+    try:
+        from google import genai
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        response = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+        return response.text or ""
+    except Exception as e:
+        print(f"[llm_search] Gemini error: {e}")
+        return ""
+
+
+def search_restaurants(query: str, request: DatePlanRequest | None = None) -> list[dict]:
+    prompt = build_restaurant_search_prompt(request)
+    output = _call_gemini_for_restaurants(prompt)
+
+    if output:
+        from backend.agent.parser import _extract_json
+        data = _extract_json(output)
+        if data and isinstance(data, list):
+            return data
+        if data and "restaurants" in data and isinstance(data["restaurants"], list):
+            return data["restaurants"]
+
+    return _fallback_restaurants(request)
+
+
+def _fallback_restaurants(request: DatePlanRequest | None = None) -> list[dict]:
     restaurants = [
         {
-            "name": "La Dolce Vita",
-            "rating": 4.6,
-            "price_level": "$$$",
-            "address": "123 Main St, Downtown",
-            "description": "Candlelit patio with handmade pasta and an extensive Italian wine list. Known for tableside tiramisu and romantic ambiance.",
-            "source": "mock",
+            "name": "The Bombay Canteen",
+            "rating": 4.5,
+            "price_level": "$$",
+            "address": "Unit-1, Process House, Kamala Mills, Senapati Bapat Marg, Lower Parel, Mumbai",
+            "description": "Modern Indian restaurant celebrating regional Indian cuisine with a seasonal menu. Known for its vibrant atmosphere and inventive cocktails.",
             "reviews": [
-                "Absolutely romantic! The candlelit patio is perfect for a date.",
-                "Incredible handmade pasta — the chef trained in Bologna.",
-                "A bit pricey but worth it for special occasions.",
+                "Incredible take on regional Indian food — every dish tells a story.",
+                "The vibe is lively but not overwhelming. Perfect for a fun date.",
+                "Must try: the jackfruit cutlets and their seasonal thali.",
             ],
-            "reservation_platform": "Resy",
-            "reservation_url": "https://resy.com/la-dolce-vita",
+            "reservation_platform": "Zomato",
+            "reservation_url": None,
         },
         {
-            "name": "Bella Notte",
-            "rating": 4.3,
-            "price_level": "$$",
-            "address": "456 Oak St, Downtown",
-            "description": "Cozy Italian spot with red-checkered tablecloths and live acoustic guitar on weekends. Walk-ins welcome on weeknights.",
-            "source": "mock",
+            "name": "Olive Bar & Kitchen",
+            "rating": 4.6,
+            "price_level": "$$$",
+            "address": "14, Union Park, Khar West, Mumbai",
+            "description": "Mediterranean restaurant set in a charming colonial bungalow with a candlelit courtyard. Romantic ambience with live music on select nights.",
             "reviews": [
-                "Cozy and welcoming — feels like a real Italian trattoria.",
-                "Great for casual dates, the live music on weekends is lovely.",
-                "Affordable and delicious. The carbonara is a must-try.",
+                "The most romantic setting in Mumbai — the courtyard under fairy lights is magical.",
+                "Service is impeccable. Feels like a special occasion every time.",
+                "Their paella and baked camembert are outstanding.",
+            ],
+            "reservation_platform": "Zomato",
+            "reservation_url": None,
+        },
+        {
+            "name": "Indian Accent",
+            "rating": 4.8,
+            "price_level": "$$$$",
+            "address": "The Lodhi, Lodhi Road, New Delhi",
+            "description": "Award-winning restaurant reimagining Indian cuisine with global techniques. Known for its tasting menu and elegant, sophisticated setting.",
+            "reviews": [
+                "Best fine dining experience in India — the tasting menu is a journey.",
+                "Perfect for impressing someone special. Every dish is a work of art.",
+                "The blue cheese naan and daal samosa are legendary.",
+            ],
+            "reservation_platform": "EazyDiner",
+            "reservation_url": None,
+        },
+        {
+            "name": "Toit",
+            "rating": 4.4,
+            "price_level": "$$",
+            "address": "100, 3rd Main Rd, Jakkasandra, 1st Block, Koramangala, Bangalore",
+            "description": "Popular craft brewery and pub with a spacious rooftop. Known for its in-house brews, wood-fired pizzas, and energetic vibe.",
+            "reviews": [
+                "Great craft beer and even better pizza. The rooftop is buzzing.",
+                "Perfect for a casual first date — relaxed, fun, and great food.",
+                "The witbier and the pepperoni pizza are a match made in heaven.",
             ],
             "reservation_platform": "Phone only",
             "reservation_url": None,
         },
         {
-            "name": "Umami Izakaya",
-            "rating": 4.5,
-            "price_level": "$$",
-            "address": "789 Pine St, Downtown",
-            "description": "Modern Japanese gastropub with shared plates, craft cocktails, and a warm intimate atmosphere.",
-            "source": "mock",
-            "reviews": [
-                "Incredible small plates — perfect for sharing on a date.",
-                "The ambiance is intimate without being stuffy. Great cocktail program.",
-                "One of the best Japanese spots in the city.",
-            ],
-            "reservation_platform": "OpenTable",
-            "reservation_url": "https://opentable.com/umami-izakaya",
-        },
-        {
-            "name": "Le Petit Coin",
+            "name": "Dum Pukht",
             "rating": 4.7,
-            "price_level": "$$$",
-            "address": "321 Elm St, Downtown",
-            "description": "Charming French bistro with a quiet, intimate dining room. Prix fixe menu with seasonal ingredients.",
-            "source": "mock",
+            "price_level": "$$$$",
+            "address": "ITC Maurya, Sardar Patel Marg, Diplomatic Enclave, New Delhi",
+            "description": "Luxury fine dining specializing in authentic Awadhi cuisine cooked using the traditional Dum Pukht method of slow cooking.",
             "reviews": [
-                "Very romantic — dim lighting, quiet corners, impeccable service.",
-                "The prix fixe menu is a steal for the quality.",
-                "Feels like a hidden gem. Perfect for a special date night.",
+                "The biryani here is otherworldly — slow-cooked to perfection.",
+                "Royal ambiance fit for a nawab. Impeccable service.",
+                "A truly memorable dining experience. The raan-e-dum pukht is a must.",
             ],
-            "reservation_platform": "Resy",
-            "reservation_url": "https://resy.com/le-petit-coin",
-        },
-        {
-            "name": "The Noodle Bar",
-            "rating": 4.1,
-            "price_level": "$",
-            "address": "555 Maple Ave, Downtown",
-            "description": "Casual ramen joint with quick service and counter seating. Great for low-pressure first dates.",
-            "source": "mock",
-            "reviews": [
-                "Perfect for a casual first date — no pressure, good food.",
-                "The tonkotsu ramen is the best in town.",
-                "Fast, cheap, and delicious. Not fancy but always satisfying.",
-            ],
-            "reservation_platform": "Walk-ins only",
+            "reservation_platform": "Phone only",
             "reservation_url": None,
         },
         {
-            "name": "Skyline Steakhouse",
-            "rating": 4.8,
-            "price_level": "$$$$",
-            "address": "100 Tower Blvd, Downtown",
-            "description": "Upscale steakhouse on the 40th floor with panoramic city views and premium dry-aged meats.",
-            "source": "mock",
+            "name": "SodaBottleOpenerWala",
+            "rating": 4.3,
+            "price_level": "$$",
+            "address": "Ground Floor, B Wing, Pheroze Building, opposite Pizza Express, Colaba, Mumbai",
+            "description": "Quirky Irani café serving Bombay-style comfort food with a retro vibe. Checkered tablecloths, vintage decor, and berry pulao.",
             "reviews": [
-                "Spectacular views and incredible steaks. Perfect for celebrating.",
-                "Very expensive but the experience is unmatched.",
-                "Service is impeccable. Great for impressing a date.",
+                "Nostalgic Bombay feels! The berry pulao and chai are perfect.",
+                "Fun, unpretentious spot for a low-key date. Great conversation starter.",
+                "The dhansak and caramel custard are my go-to order.",
             ],
-            "reservation_platform": "OpenTable",
-            "reservation_url": "https://opentable.com/skyline-steakhouse",
+            "reservation_platform": "Zomato",
+            "reservation_url": None,
         },
     ]
 
-    for r in restaurants:
-        q = query_lower
-        match_score = 0
-        if r["price_level"].count("$") <= q.count("$") + 1:
-            match_score += 1
-        keywords = q.split()
-        text = (r["name"] + " " + r["description"] + " " + " ".join(r["reviews"])).lower()
-        for kw in keywords:
-            if kw in text:
-                match_score += 1
-        if match_score > 1:
-            results.append(r)
+    if request and request.location:
+        loc = request.location.lower()
+        filtered = [r for r in restaurants if loc in r["address"].lower() or loc in r["name"].lower()]
+        if filtered:
+            return filtered
 
-    return results[:6]
-
-
-def search_restaurants(query: str) -> list[dict]:
-    if USE_MOCK_SEARCH:
-        return _load_mock_results(query)
-
-    try:
-        with DDGS() as ddgs:
-            raw = list(ddgs.text(query, max_results=8))
-        results = []
-        for r in raw:
-            results.append({
-                "name": r.get("title", ""),
-                "description": r.get("body", ""),
-                "source": r.get("href", ""),
-                "rating": 0.0,
-                "price_level": "",
-                "address": "",
-                "reviews": [],
-                "reservation_platform": "",
-                "reservation_url": None,
-            })
-        return results
-    except Exception as e:
-        print(f"[web_search] DuckDuckGo error: {e}")
-        return _load_mock_results(query)
-
-
-def search_web(query: str) -> str:
-    try:
-        with DDGS() as ddgs:
-            results = list(ddgs.text(query, max_results=5))
-        return "\n\n".join(
-            f"{r.get('title', '')}\n{r.get('body', '')}\nSource: {r.get('href', '')}"
-            for r in results
-        )
-    except Exception as e:
-        print(f"[web_search] Error: {e}")
-        return ""
+    return restaurants

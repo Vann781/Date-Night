@@ -29,5 +29,3 @@ frontend/date_night_app/pubspec.lock
 .DS_Store
 Thumbs.db
 
-# Mock data cache
-backend/mock_data/

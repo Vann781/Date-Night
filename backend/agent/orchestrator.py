@@ -2,7 +2,6 @@ from backend.config import GEMINI_API_KEY, GEMINI_MODEL
 from backend.models.request import DatePlanRequest
 from backend.services.web_search import search_restaurants
 from backend.agent.prompt_builder import (
-    refine_search_query,
     build_vibe_analysis_prompt,
     build_talking_points_prompt,
     build_summary_prompt,
@@ -33,27 +32,26 @@ def _fallback_response(prompt: str) -> str:
         return """
 {
     "rankings": [
-        {"name": "La Dolce Vita", "vibe_match_score": 92, "vibe_explanation": "Candlelit patio and handmade pasta create a romantic yet unpretentious atmosphere.", "should_recommend": true},
-        {"name": "Bella Notte", "vibe_match_score": 78, "vibe_explanation": "Cozy and casual with live music — good for relaxed dates.", "should_recommend": true},
-        {"name": "Le Petit Coin", "vibe_match_score": 88, "vibe_explanation": "Intimate French bistro with quiet corners, very romantic.", "should_recommend": true}
+        {"name": "The Bombay Canteen", "vibe_match_score": 90, "vibe_explanation": "Vibrant and modern with regional Indian cuisine — great for a fun, flavorful date.", "should_recommend": true},
+        {"name": "Olive Bar & Kitchen", "vibe_match_score": 95, "vibe_explanation": "Candlelit courtyard with Mediterranean food — incredibly romantic.", "should_recommend": true},
+        {"name": "SodaBottleOpenerWala", "vibe_match_score": 75, "vibe_explanation": "Quirky and casual — perfect for low-key dates with personality.", "should_recommend": true}
     ]
 }
 """
     if "talking_point" in prompt.lower():
-        return '{"talking_point": "The chef at this spot trained in Bologna and makes all pasta by hand — their tableside tiramisu is a signature move."}'
+        return '{"talking_point": "The chef trained in Bologna and makes all pasta by hand — their tableside tiramisu is a signature move that shows real craftsmanship."}'
     if "summary" in prompt.lower():
-        return '{"summary": "A romantic evening featuring candlelit handmade pasta with a cozy Italian backup just minutes away."}'
+        return '{"summary": "A romantic evening at Olive Bar & Kitchen with its enchanting candlelit courtyard and Mediterranean flavours, with The Bombay Canteen as a vibrant backup just minutes away."}'
     return '{"summary": "A perfect date night awaits!"}'
 
 
 def plan_date(request: DatePlanRequest) -> dict:
-    search_query = refine_search_query(request)
-    restaurants = search_restaurants(search_query)
+    restaurants = search_restaurants("", request)
 
     if not restaurants:
         restaurants = [
-            {"name": "La Dolce Vita", "rating": 4.6, "price_level": "$$$", "address": "123 Main St", "description": "Candlelit patio with handmade pasta.", "reviews": ["Romantic ambiance!"], "reservation_platform": "Resy", "reservation_url": "https://resy.com"},
-            {"name": "Bella Notte", "rating": 4.3, "price_level": "$$", "address": "456 Oak St", "description": "Cozy Italian trattoria.", "reviews": ["Great casual date spot."], "reservation_platform": "Phone only"},
+            {"name": "The Bombay Canteen", "rating": 4.5, "price_level": "$$", "address": "Lower Parel, Mumbai", "description": "Modern Indian restaurant with seasonal menus.", "reviews": ["Incredible regional Indian food!", "Great vibe for dates."], "reservation_platform": "Zomato"},
+            {"name": "Olive Bar & Kitchen", "rating": 4.6, "price_level": "$$$", "address": "Khar West, Mumbai", "description": "Romantic Mediterranean restaurant with a candlelit courtyard.", "reviews": ["Most romantic spot in Mumbai!", "Perfect for special occasions."], "reservation_platform": "Zomato"},
         ]
 
     vibe_prompt = build_vibe_analysis_prompt(request, restaurants)
